@@ -14,14 +14,17 @@ import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 @Component
+//***** ReadData => DataReader
 public class ReadData {
-    @Value("${load.start.path}")
+    @Value("${load.start.path}") // ***** Where do you take these values? I haven't seen any files like application.properties(.yml) 
     private String startLogsPath;
     @Value("${load.finish.path}")
     private String finishLogsPath;
 /* method reads start logs from file for each participant, parse necessary info, namely participantID and start_time
    and change timezone to get correct data.
  */
+    //***** Method naming is incorrect. "readAndRefactorStartLogs" - you break Single Responsibilty (method name says about it) => 
+    // => you need to move out a date formatting logic to separate method
     public Map<String, String> readAndRefactorStartLogs(){
         Map<String, String> timesTap = new LinkedHashMap<>();
 
@@ -30,6 +33,7 @@ public class ReadData {
                     .collect(Collectors.toMap(
                             k -> k.substring(4, 16),
                             v -> {
+                                // Need to move out to separate method
                                 DateFormat parsingTimezone = new SimpleDateFormat("yyMMddHHmmss");
                                 parsingTimezone.setTimeZone(TimeZone.getTimeZone("UTC"));
 
@@ -37,25 +41,28 @@ public class ReadData {
                                 outputTimezone.setTimeZone(TimeZone.getTimeZone("Europe/Kiev"));
 
                                 try {
+                                    // Connect a few operations in one line is not a good idea. Difficult to read and debug
                                     return parsingTimezone.format(outputTimezone.parse(v.substring(20, 32)));
                                 } catch (ParseException e) {
                                     e.printStackTrace();
-                                    return null;
+                                    return null; //***** Returning NULL highly not recommended. You can use something like "N/A"
                                 }
                             },
                             ((k, v) -> k), //merge function.
                             LinkedHashMap::new
                     ));
         } catch (IOException e) {
-            e.printStackTrace();
+            e.printStackTrace(); // ***** Why does you not to use LOG (@Slf4j : log.error("Some exception", e))
         }
         return timesTap;
     }
 
+     
 //  method reads finish logs from file for each participant, parse participantID and finish_time.
     public Map<String, String> readFinishLogsFromFile(){
         Map<String, String> timeMap = new LinkedHashMap<>();
-
+        
+        //***** "linesStart" inside  - what does it mean? Maybe it should be like "lineFinish" according to your logic
         try (Stream<String> linesStart = Files.lines(Path.of(finishLogsPath))) {
             timeMap = linesStart
                     .collect(Collectors.toMap(
@@ -68,6 +75,7 @@ public class ReadData {
         }
         return timeMap;
     }
+    
     public Map<String, String> getMergedMap(){
         Map<String, String> mergedMap = Stream.of(readAndRefactorStartLogs(),
                 readFinishLogsFromFile())
@@ -76,8 +84,9 @@ public class ReadData {
                         Map.Entry::getKey,
                         Map.Entry::getValue,
                         (v1, v2) -> {
+                            // ***** You should to move out this logic to separete method
                             DateFormat format = new SimpleDateFormat("yyMMddHHmmss");
-                            Date start, finish;
+                            Date start, finish; //**** "Date" is not a Java 8+ (Instant, LocalDateTime, ZonedDateTime)
                             try{
                                 start = format.parse(v1);
                                 finish = format.parse(v2);
@@ -91,6 +100,8 @@ public class ReadData {
                 ));
         return mergedMap;
     }
+    
+    //**** You don't take into account cases when there is no start log or finish log. I haven't seen such logic
     public ArrayList<String> sortMap(){
         Map<String, String> sortedMap = getMergedMap().entrySet().stream()
                 .sorted((k1, k2) -> -k2.getValue().compareTo(k1.getValue()))
