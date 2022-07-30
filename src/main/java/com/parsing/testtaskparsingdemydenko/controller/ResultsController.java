@@ -9,6 +9,13 @@ import org.springframework.web.bind.annotation.RestController;
 import java.util.ArrayList;
 import java.util.Map;
 
+/**
+* Remarks:
+* 1. You have to give a human readable name to the methods. This approach avoids useless comments.
+* 2. ReadData is an incorrect name for class. It mustn't be a verb! (For example: DataReader)
+* 3. Path must be plural or singular in whole project (/results, /start-times, /finish-times)
+*/
+
 @RestController
 @RequestMapping("/competition")
 public class ResultsController {
